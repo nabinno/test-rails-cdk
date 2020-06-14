@@ -1,0 +1,28 @@
+version: '0'
+
+vpc:
+  max_az: 2
+  enable_dns: true
+
+services:
+  test_rails_cdk_development:
+    source_path: . # relative path from `aws-rails-provisioner.yml`
+    fargate:
+      desired_count: 2
+      memory: 512
+      cpu: 256
+      envs:
+        PORT: 80
+        RAILS_LOG_TO_STDOUT: true
+        RAILS_ENV: development
+      public: true
+    db_cluster:
+      engine: aurora-postgresql
+      db_name: development
+    scaling:
+      max_capacity: 3
+      on_cpu:
+        target_util_percent: 80
+        scale_in_cool_down: 300
+      on_requests:
+        requests_per_target: 1000
