@@ -57,6 +57,8 @@ export class TestRailsCdkDevelopmentFargateStack extends cdk.Stack {
     });
     const dbUrl = "postgres://" + username + ":" + password + "@" + db.clusterEndpoint.socketAddress + "/development";
     this.dbUrl = dbUrl;
+    const host = db.clusterEndpoint.socketAddress.split(":")[0];
+    const port = db.clusterEndpoint.socketAddress.split(":")[1];
 
     const asset = new ecr_assets.DockerImageAsset(this, 'ImageAssetBuild', {
       directory: '../.'
@@ -78,8 +80,9 @@ export class TestRailsCdkDevelopmentFargateStack extends cdk.Stack {
         containerName: 'FargateTaskContainer',
         containerPort: 80,
         environment: {
-          'DATABASE_HOST': db.clusterEndpoint.socketAddress,
+          'DATABASE_HOST': host,
           'DATABASE_USERNAME': username,
+          'DATABASE_PORT': port,
           'DATABASE': 'development',
           'PORT': '80',
           'RAILS_LOG_TO_STDOUT': 'true',
