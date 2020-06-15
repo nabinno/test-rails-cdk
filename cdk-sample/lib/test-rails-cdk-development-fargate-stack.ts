@@ -21,44 +21,18 @@ export class TestRailsCdkDevelopmentFargateStack extends cdk.Stack {
     super(scope, id);
 
     // import resources
+    const region = scope.region;
+    const account = scope.account;
     const cluster = props.cluster;
     const vpc = props.vpc;
 
     // Create secret from SecretsManager
-    const username = 'TestRailsCdkDevelopmentDBAdminUser';
-    const secret = new secretsmanager.Secret(this, 'Secret', {
-      generateSecretString: {
-        excludePunctuation: true
-      }
-    });
-    const password = secret.secretValue;
-
-    // Import DB cluster ParameterGroup
-    const clusterParameterGroup = rds.ClusterParameterGroup.fromParameterGroupName(
-      this, 'DBClusterPG', 'aws-rails-provisioner-default-aurora-postgresql');
-    // Create DB Cluster
-    const db = new rds.DatabaseCluster(this, 'DBCluster', {
-      engine: rds.DatabaseClusterEngine.AURORA_POSTGRESQL,
-      masterUser: {
-        username: username,
-        password: password
-      },
-      instanceProps: {
-        instanceType: new ec2.InstanceType('r4.large'),
-        vpc: vpc,
-        vpcSubnets: {
-          subnetType: ec2.SubnetType.ISOLATED
-        }
-      },
-      defaultDatabaseName: 'development',
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
-      instances: 2,
-      parameterGroup: clusterParameterGroup
-    });
-    const dbUrl = "postgres://" + username + ":" + password + "@" + db.clusterEndpoint.socketAddress + "/development";
-    this.dbUrl = dbUrl;
-    const host = db.clusterEndpoint.socketAddress.split(":")[0];
-    const port = db.clusterEndpoint.socketAddress.split(":")[1];
+    const secretJson = secretsmanager.Secret.fromSecretAttributes(this, 'Secret', {
+      secretArn: `arn:aws:secretsmanager:${region}:${account}:secret:test-arp-integ-E6Nr26`
+    })
+    const username = secretJson.secretValueFromJson('username').toString();
+    const password = secretJson.secretValueFromJson('password').toString();
+    const host = secretJson.secretValueFromJson('host').toString();
 
     const asset = new ecr_assets.DockerImageAsset(this, 'ImageAssetBuild', {
       directory: '../.'
@@ -82,14 +56,12 @@ export class TestRailsCdkDevelopmentFargateStack extends cdk.Stack {
         environment: {
           'DATABASE_HOST': host,
           'DATABASE_USERNAME': username,
-          'DATABASE_PORT': port,
+          'DATABASE_PASSWORD': password,
+          'DATABASE_PORT': '5432',
           'DATABASE': 'development',
           'PORT': '80',
           'RAILS_LOG_TO_STDOUT': 'true',
           'RAILS_ENV': 'development',
-        },
-        secrets: {
-          'DATABASE_PASSWORD': ecs.Secret.fromSecretsManager(secret),
         },
         enableLogging: true,
       },
@@ -99,8 +71,8 @@ export class TestRailsCdkDevelopmentFargateStack extends cdk.Stack {
       publicLoadBalancer: true,
       assignPublicIp: true
     });
-    db.connections.allowDefaultPortFrom(lbFargate.service, 'From Fargate');
-    this.db = db;
+    // db.connections.allowDefaultPortFrom(lbFargate.service, 'From Fargate');
+    // this.db = db;
 
     const scaling = lbFargate.service.autoScaleTaskCount({
       maxCapacity: 3,
