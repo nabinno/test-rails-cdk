@@ -1,28 +1,30 @@
-FROM node:13.5-alpine as node
-FROM ruby:2.6.5-alpine
+FROM ruby:2.6.5-slim
 
-RUN apk update && \
-        apk upgrade && \
-        apk add --no-cache git libxml2-dev libxslt-dev postgresql-dev postgresql-client tzdata bash less && \
-        apk add --no-cache sqlite-dev && \
-        apk add --virtual build-packages --no-cache build-base curl-dev && \
-        cp /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
+ENV TZ Asia/Tokyo
+ENV LANG C.UTF-8
+ENV LANG ja_JP.UTF-8
+ENV LANGUAGE en_US.UTF-8
+ENV LC_ALL en_US.UTF-8
+ENV LC_MESSAGES C
+ENV BUNDLE_JOBS 4
+ENV BUNDLE_RETRY 3
 
-RUN mkdir /app
 WORKDIR /app
-ENV LANG=ja_JP.UTF-8
-ENV BUNDLE_JOBS=4
-ENV BUNDLE_RETRY=3
+COPY Gemfile* /app/
+COPY package.json /app/
+COPY yarn.lock /app/
 
-# Install nodejs yarn
-COPY --from=node /usr/local/bin/node /usr/local/bin/node
-COPY --from=node /opt/yarn-* /opt/yarn
-RUN ln -s /usr/local/bin/node /usr/local/bin/nodejs && \
-        ln -s /opt/yarn/bin/yarn /usr/local/bin/yarn
+RUN apt-get update \
+        && apt-get install -y less bash curl nodejs mariadb-client libsqlite3-dev build-essential libpq-dev libmariadb-dev imagemagick \
+        && curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - \
+        && echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list \
+        && apt-get update \
+        && apt-get install -y yarn
 
-COPY Gemfile /app/Gemfile
-COPY Gemfile.lock /app/Gemfile.lock
-RUN bundle install
+RUN gem install bundler \
+        && bundle install \
+        && yarn install \
+        && rm -rf /usr/local/bundle/cache/* /usr/local/share/.cache/* /var/cache/* /tmp/*
 
 COPY . /app
 
