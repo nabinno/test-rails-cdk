@@ -5,6 +5,7 @@ import ecs_patterns = require('@aws-cdk/aws-ecs-patterns');
 import ecr_assets = require('@aws-cdk/aws-ecr-assets');
 import rds = require('@aws-cdk/aws-rds');
 import secretsmanager = require('@aws-cdk/aws-secretsmanager');
+import ssm = require('@aws-cdk/aws-ssm');
 
 interface TestRailsCdkDevelopmentFargateStackProps {
   vpc: ec2.IVpc,
@@ -26,13 +27,20 @@ export class TestRailsCdkDevelopmentFargateStack extends cdk.Stack {
     const cluster = props.cluster;
     const vpc = props.vpc;
 
-    // Create secret from SecretsManager
-    const secretJson = secretsmanager.Secret.fromSecretAttributes(this, 'Secret', {
-      secretArn: `arn:aws:secretsmanager:${region}:${account}:secret:test-arp-integ-E6Nr26`
-    })
-    const username = secretJson.secretValueFromJson('username').toString();
-    const password = secretJson.secretValueFromJson('password').toString();
-    const host = secretJson.secretValueFromJson('host').toString();
+    // // Create secret from SecretsManager
+    // const secretJson = secretsmanager.Secret.fromSecretAttributes(this, 'Secret', {
+    //   secretArn: `arn:aws:secretsmanager:${region}:${account}:secret:test-arp-integ-E6Nr26` });
+    // const dbUsername = secretJson.secretValueFromJson('username').toString();
+    // const dbPassword = secretJson.secretValueFromJson('password').toString();
+    // const dbHost = secretJson.secretValueFromJson('host').toString();
+    // console.log('1. ======================================================================');
+    // console.log(dbPassword);
+    // console.log(dbHost);
+
+    // const dbHost = ecs.Secret.fromSsmParameter(ssm.StringParameter.fromSecureStringParameterAttributes(this, 'Secrets-dbHost', { parameterName: '/rds/integ/host', version: 1 }))
+    // const dbPassword = ecs.Secret.fromSsmParameter(ssm.StringParameter.fromSecureStringParameterAttributes(this, 'Secrets-dbHost', { parameterName: '/rds/integ/password', version: 1 }))
+    const dbHost = process.env.DB_HOST ? process.env.DB_HOST : '';
+    const dbPassword = process.env.DB_PASSWORD ? process.env.DB_PASSWORD : '';
 
     const asset = new ecr_assets.DockerImageAsset(this, 'ImageAssetBuild', {
       directory: '../.'
@@ -45,6 +53,7 @@ export class TestRailsCdkDevelopmentFargateStack extends cdk.Stack {
 
     const image = ecs.ContainerImage.fromDockerImageAsset(asset);
 
+    console.log('3. ======================================================================');
     // Fargate service
     const lbFargate = new ecs_patterns.ApplicationLoadBalancedFargateService(this, 'LBFargate', {
       serviceName: 'TestRailsCdkDevelopment',
@@ -54,11 +63,11 @@ export class TestRailsCdkDevelopmentFargateStack extends cdk.Stack {
         containerName: 'FargateTaskContainer',
         containerPort: 80,
         environment: {
-          'DATABASE_HOST': host,
-          'DATABASE_USERNAME': username,
-          'DATABASE_PASSWORD': password,
-          'DATABASE_PORT': '5432',
-          'DATABASE': 'development',
+          'DB_USERNAME': 'postgres',
+          'DB_PORT': '5432',
+          'DB_DATABASE': 'development',
+          'DB_HOST': dbHost,
+          'DB_PASSWORD': dbPassword,
           'PORT': '80',
           'RAILS_LOG_TO_STDOUT': 'true',
           'RAILS_ENV': 'development',
