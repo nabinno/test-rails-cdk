@@ -4,8 +4,6 @@ import ecs = require('@aws-cdk/aws-ecs');
 import ecs_patterns = require('@aws-cdk/aws-ecs-patterns');
 import ecr_assets = require('@aws-cdk/aws-ecr-assets');
 import rds = require('@aws-cdk/aws-rds');
-import secretsmanager = require('@aws-cdk/aws-secretsmanager');
-import ssm = require('@aws-cdk/aws-ssm');
 
 interface TestRailsCdkDevelopmentFargateStackProps {
   vpc: ec2.IVpc,
@@ -22,25 +20,11 @@ export class TestRailsCdkDevelopmentFargateStack extends cdk.Stack {
     super(scope, id);
 
     // import resources
-    const region = scope.region;
-    const account = scope.account;
     const cluster = props.cluster;
-    const vpc = props.vpc;
 
     // // Create secret from SecretsManager
-    // const secretJson = secretsmanager.Secret.fromSecretAttributes(this, 'Secret', {
-    //   secretArn: `arn:aws:secretsmanager:${region}:${account}:secret:test-arp-integ-E6Nr26` });
-    // const dbUsername = secretJson.secretValueFromJson('username').toString();
-    // const dbPassword = secretJson.secretValueFromJson('password').toString();
-    // const dbHost = secretJson.secretValueFromJson('host').toString();
-    // console.log('1. ======================================================================');
-    // console.log(dbPassword);
-    // console.log(dbHost);
-
-    // const dbHost = ecs.Secret.fromSsmParameter(ssm.StringParameter.fromSecureStringParameterAttributes(this, 'Secrets-dbHost', { parameterName: '/rds/integ/host', version: 1 }))
-    // const dbPassword = ecs.Secret.fromSsmParameter(ssm.StringParameter.fromSecureStringParameterAttributes(this, 'Secrets-dbHost', { parameterName: '/rds/integ/password', version: 1 }))
-    const dbHost = process.env.DB_HOST ? process.env.DB_HOST : '';
-    const dbPassword = process.env.DB_PASSWORD ? process.env.DB_PASSWORD : '';
+    const dbHost = process.env.DB_HOST || '';
+    const dbPassword = process.env.DB_PASSWORD || '';
 
     const asset = new ecr_assets.DockerImageAsset(this, 'ImageAssetBuild', {
       directory: '../.'
@@ -53,7 +37,6 @@ export class TestRailsCdkDevelopmentFargateStack extends cdk.Stack {
 
     const image = ecs.ContainerImage.fromDockerImageAsset(asset);
 
-    console.log('3. ======================================================================');
     // Fargate service
     const lbFargate = new ecs_patterns.ApplicationLoadBalancedFargateService(this, 'LBFargate', {
       serviceName: 'TestRailsCdkDevelopment',
@@ -80,8 +63,6 @@ export class TestRailsCdkDevelopmentFargateStack extends cdk.Stack {
       publicLoadBalancer: true,
       assignPublicIp: true
     });
-    // db.connections.allowDefaultPortFrom(lbFargate.service, 'From Fargate');
-    // this.db = db;
 
     const scaling = lbFargate.service.autoScaleTaskCount({
       maxCapacity: 3,
