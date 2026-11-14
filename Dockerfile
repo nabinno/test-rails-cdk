@@ -1,3 +1,5 @@
+# Frozen verification image. Manifests are *.snapshot and lockfiles are gone.
+# This image is not built. Do not restore a lockfile. See README.
 FROM ruby:2.6.5-slim
 
 ENV TZ Asia/Tokyo
@@ -7,9 +9,8 @@ ENV BUNDLE_JOBS 4
 ENV BUNDLE_RETRY 3
 
 WORKDIR /app
-COPY Gemfile* /app/
-COPY package.json /app/
-COPY yarn.lock /app/
+COPY Gemfile.snapshot /app/Gemfile.snapshot
+COPY package.json.snapshot /app/package.json.snapshot
 
 RUN apt-get update \
         && apt-get install -y less bash curl nodejs mariadb-client libsqlite3-dev build-essential libpq-dev libmariadb-dev imagemagick \
@@ -19,8 +20,6 @@ RUN apt-get update \
         && apt-get install -y yarn
 
 RUN gem install bundler \
-        && bundle install \
-        && yarn install \
         && rm -rf /usr/local/bundle/cache/* /usr/local/share/.cache/* /var/cache/* /tmp/*
 
 COPY . /app
